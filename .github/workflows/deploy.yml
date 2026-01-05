@@ -1,0 +1,69 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    # Review gh actions docs if you want to further define triggers, paths, etc
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#on
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Docusaurus to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # If your Docusaurus site is in a subdirectory, uncomment the line below
+          # submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: docusaurus/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd docusaurus
+          npm install
+
+      - name: Build website
+        run: |
+          cd docusaurus
+          npm run build
+        env:
+          NODE_ENV: production
+          CHATBOT_API_URL: ${{ vars.CHATBOT_API_URL || 'https://demo-zlc2.onrender.com' }}
+          REACT_APP_CHATBOT_API_URL: ${{ vars.CHATBOT_API_URL || 'https://demo-zlc2.onrender.com' }}
+
+      - name: Verify build output
+        run: |
+          cd docusaurus
+          ls -la build/
+          test -f build/index.html && echo "✓ index.html exists" || echo "✗ index.html missing"
+          test -d build/assets && echo "✓ assets directory exists" || echo "✗ assets directory missing"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload entire repository
+          path: 'docusaurus/build'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
